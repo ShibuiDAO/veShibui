@@ -40,13 +40,19 @@ def __init__(token_addr: address, _name: String[64], _symbol: String[32]):
     self.name = _name
     self.symbol = _symbol
 
+
+@internal
+def assert_is_admin(addr: address):
+    assert addr == self.admin  # dev: admin only
+
+
 @external
 def commit_transfer_ownership(addr: address):
     """
     @notice Transfer ownership of VotingEscrow contract to `addr`
     @param addr Address to have ownership transferred to
     """
-    assert msg.sender == self.admin  # dev: admin only
+    self.assert_is_admin(msg.sender)
     self.future_admin = addr
     log CommitOwnership(addr)
 
@@ -56,8 +62,11 @@ def apply_transfer_ownership():
     """
     @notice Apply ownership transfer
     """
-    assert msg.sender == self.admin  # dev: admin only
+    self.assert_is_admin(msg.sender)
     _admin: address = self.future_admin
     assert _admin != ZERO_ADDRESS  # dev: admin not set
+
     self.admin = _admin
+    self.future_admin = ZERO_ADDRESS
+
     log ApplyOwnership(_admin)
