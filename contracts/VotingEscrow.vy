@@ -41,6 +41,12 @@ event Deposit:
     locktime: indexed(uint256)
     type: int128
     ts: uint256
+
+event Withdraw:
+    provider: indexed(address)
+    value: uint256
+    ts: uint256
+
 event Supply:
     prevSupply: uint256
     supply: uint256
@@ -123,6 +129,19 @@ def apply_transfer_ownership():
     self.future_admin = ZERO_ADDRESS
 
     log ApplyOwnership(_admin)
+
+
+# TODO: Possibly use SmartContractChecker
+@internal
+def assert_not_contract(addr: address):
+    """
+    @notice Check if the call is from a smart contract, revert if it is
+    @param addr Address to be checked
+    """
+    if addr != tx.origin:
+        if addr.is_contract:
+            raise "Smart contract depositors not allowed"
+        return
 
 @external
 @view
@@ -334,3 +353,60 @@ def deposit_for(_addr: address, _value: uint256):
     assert _locked.end > block.timestamp, "Cannot add to expired lock. Withdraw"
 
     self._deposit_for(_addr, _value, 0, self.locked[_addr], DEPOSIT_FOR_TYPE)
+
+
+@external
+@nonreentrant('lock')
+def create_lock(_value: uint256, _unlock_time: uint256):
+    """
+    @notice Deposit `_value` tokens for `msg.sender` and lock until `_unlock_time`
+    @param _value Amount to deposit
+    @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks
+    """
+    self.assert_not_contract(msg.sender)
+    unlock_time: uint256 = (_unlock_time / WEEK) * WEEK  # Locktime is rounded down to weeks
+    _locked: LockedBalance = self.locked[msg.sender]
+
+    assert _value > 0  # dev: need non-zero value
+    assert _locked.amount == 0, "Withdraw old tokens first"
+    assert unlock_time > block.timestamp, "Can only lock until time in the future"
+    assert unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 6 months max"
+
+    self._deposit_for(msg.sender, _value, unlock_time, _locked, CREATE_LOCK_TYPE)
+
+
+@external
+@nonreentrant('lock')
+def increase_amount(_value: uint256):
+    """
+    @notice Deposit `_value` additional tokens for `msg.sender`
+            without modifying the unlock time
+    @param _value Amount of tokens to deposit and add to the lock
+    """
+    self.assert_not_contract(msg.sender)
+    _locked: LockedBalance = self.locked[msg.sender]
+
+    assert _value > 0  # dev: need non-zero value
+    assert _locked.amount > 0, "No existing lock found"
+    assert _locked.end > block.timestamp, "Cannot add to expired lock. Withdraw"
+
+    self._deposit_for(msg.sender, _value, 0, _locked, INCREASE_LOCK_AMOUNT)
+
+
+@external
+@nonreentrant('lock')
+def increase_unlock_time(_unlock_time: uint256):
+    """
+    @notice Extend the unlock time for `msg.sender` to `_unlock_time`
+    @param _unlock_time New epoch time for unlocking
+    """
+    self.assert_not_contract(msg.sender)
+    _locked: LockedBalance = self.locked[msg.sender]
+    unlock_time: uint256 = (_unlock_time / WEEK) * WEEK  # Locktime is rounded down to weeks
+
+    assert _locked.end > block.timestamp, "Lock expired"
+    assert _locked.amount > 0, "Nothing is locked"
+    assert unlock_time > _locked.end, "Can only increase lock duration"
+    assert unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 6 months max"
+
+    self._deposit_for(msg.sender, 0, unlock_time, _locked, INCREASE_UNLOCK_TIME)
