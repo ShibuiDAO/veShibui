@@ -410,3 +410,32 @@ def increase_unlock_time(_unlock_time: uint256):
     assert unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 6 months max"
 
     self._deposit_for(msg.sender, 0, unlock_time, _locked, INCREASE_UNLOCK_TIME)
+
+
+@external
+@nonreentrant('lock')
+def withdraw():
+    """
+    @notice Withdraw all tokens for `msg.sender`
+    @dev Only possible if the lock has expired
+    """
+    _locked: LockedBalance = self.locked[msg.sender]
+    assert block.timestamp >= _locked.end, "The lock didn't expire"
+    value: uint256 = convert(_locked.amount, uint256)
+
+    old_locked: LockedBalance = _locked
+    _locked.end = 0
+    _locked.amount = 0
+    self.locked[msg.sender] = _locked
+    supply_before: uint256 = self.supply
+    self.supply = supply_before - value
+
+    # old_locked can have either expired <= timestamp or zero end
+    # _locked has only 0 end
+    # Both can have >= 0 amount
+    self._checkpoint(msg.sender, old_locked, _locked)
+
+    assert ERC20(self.token).transfer(msg.sender, value)
+
+    log Withdraw(msg.sender, value, block.timestamp)
+    log Supply(supply_before, supply_before - value)
