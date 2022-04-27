@@ -439,3 +439,170 @@ def withdraw():
 
     log Withdraw(msg.sender, value, block.timestamp)
     log Supply(supply_before, supply_before - value)
+
+
+# The following ERC20/minime-compatible methods are not real balanceOf and supply!
+# They measure the weights for the purpose of voting, so they don't represent
+# real coins.
+
+@internal
+@view
+def find_block_epoch(_block: uint256, max_epoch: uint256) -> uint256:
+    """
+    @notice Binary search to estimate timestamp for block number
+    @param _block Block to find
+    @param max_epoch Don't go beyond this epoch
+    @return Approximate timestamp for block
+    """
+    # Binary search
+    _min: uint256 = 0
+    _max: uint256 = max_epoch
+    for i in range(128):  # Will be always enough for 128-bit numbers
+        if _min >= _max:
+            break
+        _mid: uint256 = (_min + _max + 1) / 2
+        if self.point_history[_mid].blk <= _block:
+            _min = _mid
+        else:
+            _max = _mid - 1
+    return _min
+
+
+@external
+@view
+def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
+    """
+    @notice Get the current voting power for `msg.sender`
+    @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility
+    @param addr User wallet address
+    @param _t Epoch time to return voting power at
+    @return User voting power
+    """
+    _epoch: uint256 = self.user_point_epoch[addr]
+    if _epoch == 0:
+        return 0
+    else:
+        last_point: Point = self.user_point_history[addr][_epoch]
+        last_point.bias -= last_point.slope * convert(_t - last_point.ts, int128)
+        if last_point.bias < 0:
+            last_point.bias = 0
+        return convert(last_point.bias, uint256)
+
+
+@external
+@view
+def balanceOfAt(addr: address, _block: uint256) -> uint256:
+    """
+    @notice Measure voting power of `addr` at block height `_block`
+    @dev Adheres to MiniMe `balanceOfAt` interface: https://github.com/Giveth/minime
+    @param addr User's wallet address
+    @param _block Block to calculate the voting power at
+    @return Voting power
+    """
+    # Copying and pasting totalSupply code because Vyper cannot pass by
+    # reference yet
+    assert _block <= block.number
+
+    # Binary search
+    _min: uint256 = 0
+    _max: uint256 = self.user_point_epoch[addr]
+    for i in range(128):  # Will be always enough for 128-bit numbers
+        if _min >= _max:
+            break
+        _mid: uint256 = (_min + _max + 1) / 2
+        if self.user_point_history[addr][_mid].blk <= _block:
+            _min = _mid
+        else:
+            _max = _mid - 1
+
+    upoint: Point = self.user_point_history[addr][_min]
+
+    max_epoch: uint256 = self.epoch
+    _epoch: uint256 = self.find_block_epoch(_block, max_epoch)
+    point_0: Point = self.point_history[_epoch]
+    d_block: uint256 = 0
+    d_t: uint256 = 0
+    if _epoch < max_epoch:
+        point_1: Point = self.point_history[_epoch + 1]
+        d_block = point_1.blk - point_0.blk
+        d_t = point_1.ts - point_0.ts
+    else:
+        d_block = block.number - point_0.blk
+        d_t = block.timestamp - point_0.ts
+    block_time: uint256 = point_0.ts
+    if d_block != 0:
+        block_time += d_t * (_block - point_0.blk) / d_block
+
+    upoint.bias -= upoint.slope * convert(block_time - upoint.ts, int128)
+    if upoint.bias >= 0:
+        return convert(upoint.bias, uint256)
+    else:
+        return 0
+
+
+@internal
+@view
+def supply_at(point: Point, t: uint256) -> uint256:
+    """
+    @notice Calculate total voting power at some point in the past
+    @param point The point (bias/slope) to start search from
+    @param t Time to calculate the total voting power at
+    @return Total voting power at that time
+    """
+    last_point: Point = point
+    t_i: uint256 = (last_point.ts / WEEK) * WEEK
+    for i in range(255):
+        t_i += WEEK
+        d_slope: int128 = 0
+        if t_i > t:
+            t_i = t
+        else:
+            d_slope = self.slope_changes[t_i]
+        last_point.bias -= last_point.slope * convert(t_i - last_point.ts, int128)
+        if t_i == t:
+            break
+        last_point.slope += d_slope
+        last_point.ts = t_i
+
+    if last_point.bias < 0:
+        last_point.bias = 0
+    return convert(last_point.bias, uint256)
+
+
+@external
+@view
+def totalSupply(t: uint256 = block.timestamp) -> uint256:
+    """
+    @notice Calculate total voting power
+    @dev Adheres to the ERC20 `totalSupply` interface for Aragon compatibility
+    @return Total voting power
+    """
+    _epoch: uint256 = self.epoch
+    last_point: Point = self.point_history[_epoch]
+    return self.supply_at(last_point, t)
+
+
+@external
+@view
+def totalSupplyAt(_block: uint256) -> uint256:
+    """
+    @notice Calculate total voting power at some point in the past
+    @param _block Block to calculate the total voting power at
+    @return Total voting power at `_block`
+    """
+    assert _block <= block.number
+    _epoch: uint256 = self.epoch
+    target_epoch: uint256 = self.find_block_epoch(_block, _epoch)
+
+    point: Point = self.point_history[target_epoch]
+    dt: uint256 = 0
+    if target_epoch < _epoch:
+        point_next: Point = self.point_history[target_epoch + 1]
+        if point.blk != point_next.blk:
+            dt = (_block - point.blk) * (point_next.ts - point.ts) / (point_next.blk - point.blk)
+    else:
+        if point.blk != block.number:
+            dt = (_block - point.blk) * (block.timestamp - point.ts) / (block.number - point.blk)
+    # Now dt contains info on how far are we beyond point
+
+    return self.supply_at(point, point.ts + dt)
