@@ -445,6 +445,7 @@ def withdraw():
 # They measure the weights for the purpose of voting, so they don't represent
 # real coins.
 
+
 @internal
 @view
 def find_block_epoch(_block: uint256, max_epoch: uint256) -> uint256:
@@ -468,9 +469,9 @@ def find_block_epoch(_block: uint256, max_epoch: uint256) -> uint256:
     return _min
 
 
-@external
+@internal
 @view
-def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
+def balance_of(addr: address, _t: uint256 = block.timestamp) -> uint256:
     """
     @notice Get the current voting power for `msg.sender`
     @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility
@@ -488,10 +489,22 @@ def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
             last_point.bias = 0
         return convert(last_point.bias, uint256)
 
-
 @external
 @view
-def balanceOfAt(addr: address, _block: uint256) -> uint256:
+def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
+    """
+    @notice Get the current voting power for `msg.sender`
+    @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility
+    @param addr User wallet address
+    @param _t Epoch time to return voting power at
+    @return User voting power
+    """
+    return self.balance_of(addr, _t)
+
+
+@internal
+@view
+def balance_of_at(addr: address, _block: uint256) -> uint256:
     """
     @notice Measure voting power of `addr` at block height `_block`
     @dev Adheres to MiniMe `balanceOfAt` interface: https://github.com/Giveth/minime
@@ -538,6 +551,19 @@ def balanceOfAt(addr: address, _block: uint256) -> uint256:
         return convert(upoint.bias, uint256)
     else:
         return 0
+
+
+@external
+@view
+def balanceOfAt(addr: address, _block: uint256) -> uint256:
+    """
+    @notice Measure voting power of `addr` at block height `_block`
+    @dev Adheres to MiniMe `balanceOfAt` interface: https://github.com/Giveth/minime
+    @param addr User's wallet address
+    @param _block Block to calculate the voting power at
+    @return Voting power
+    """
+    return self.balance_of_at(addr, _block)
 
 
 @internal
@@ -606,3 +632,18 @@ def totalSupplyAt(_block: uint256) -> uint256:
     # Now dt contains info on how far are we beyond point
 
     return self.supply_at(point, point.ts + dt)
+
+
+# These methods are for compatiblity with Governor Bravo which is the base of Governor Charlie.
+
+
+@external
+@view
+def getCurrentVotes(addr: address) -> uint256:
+    return self.balance_of(addr)
+
+
+@external
+@view
+def getPriorVotes(addr: address, _block: uint256) -> uint256:
+    return self.balance_of_at(addr, _block)
