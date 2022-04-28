@@ -181,18 +181,6 @@ def apply_next_ve_contract():
     log ApplyNextVeContract(next)
 
 
-# TODO: Possibly use SmartContractChecker
-@internal
-def assert_not_contract(addr: address):
-    """
-    @notice Check if the call is from a smart contract, revert if it is
-    @param addr Address to be checked
-    """
-    if addr != tx.origin:
-        if addr.is_contract:
-            raise "Smart contract depositors not allowed"
-        return
-
 @external
 @view
 def get_last_user_slope(addr: address) -> int128:
@@ -413,7 +401,6 @@ def create_lock(_value: uint256, _unlock_time: uint256):
     @param _value Amount to deposit
     @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks
     """
-    self.assert_not_contract(msg.sender)
     unlock_time: uint256 = (_unlock_time / WEEK) * WEEK  # Locktime is rounded down to weeks
     _locked: LockedBalance = self.locked[msg.sender]
 
@@ -433,7 +420,6 @@ def increase_amount(_value: uint256):
             without modifying the unlock time
     @param _value Amount of tokens to deposit and add to the lock
     """
-    self.assert_not_contract(msg.sender)
     _locked: LockedBalance = self.locked[msg.sender]
 
     assert _value > 0  # dev: need non-zero value
@@ -450,7 +436,6 @@ def increase_unlock_time(_unlock_time: uint256):
     @notice Extend the unlock time for `msg.sender` to `_unlock_time`
     @param _unlock_time New epoch time for unlocking
     """
-    self.assert_not_contract(msg.sender)
     _locked: LockedBalance = self.locked[msg.sender]
     unlock_time: uint256 = (_unlock_time / WEEK) * WEEK  # Locktime is rounded down to weeks
 
