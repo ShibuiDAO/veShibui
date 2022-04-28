@@ -9,6 +9,19 @@
      more than `MAXTIME` (~6 months).
 """
 
+# Voting escrow to have time-weighted votes
+# Votes have a weight depending on time, so that users are committed
+# to the future of (whatever they are voting for).
+# The weight in this implementation is linear, and lock cannot be more than maxtime:
+# w ^
+# 1 +        /
+#   |      /
+#   |    /
+#   |  /
+#   |/
+# 0 +--------+------> time
+#       maxtime (6 months)
+
 interface ERC20:
     def decimals() -> uint256: view
     def name() -> String[64]: view
