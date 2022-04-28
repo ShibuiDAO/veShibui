@@ -474,7 +474,6 @@ def find_block_epoch(_block: uint256, max_epoch: uint256) -> uint256:
 def balance_of(addr: address, _t: uint256 = block.timestamp) -> uint256:
     """
     @notice Get the current voting power for `msg.sender`
-    @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility
     @param addr User wallet address
     @param _t Epoch time to return voting power at
     @return User voting power
@@ -488,6 +487,7 @@ def balance_of(addr: address, _t: uint256 = block.timestamp) -> uint256:
         if last_point.bias < 0:
             last_point.bias = 0
         return convert(last_point.bias, uint256)
+
 
 @external
 @view
@@ -507,7 +507,6 @@ def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
 def balance_of_at(addr: address, _block: uint256) -> uint256:
     """
     @notice Measure voting power of `addr` at block height `_block`
-    @dev Adheres to MiniMe `balanceOfAt` interface: https://github.com/Giveth/minime
     @param addr User's wallet address
     @param _block Block to calculate the voting power at
     @return Voting power
@@ -640,10 +639,23 @@ def totalSupplyAt(_block: uint256) -> uint256:
 @external
 @view
 def getCurrentVotes(addr: address) -> uint256:
+    """
+    @notice Get the current voting power for `msg.sender`.
+    @dev Adheres to Compounds `getCurrentVotes` interface: https://github.com/compound-finance/compound-protocol .
+    @param addr User wallet address.
+    @return User voting power.
+    """
     return self.balance_of(addr)
 
 
 @external
 @view
 def getPriorVotes(addr: address, _block: uint256) -> uint256:
+    """
+    @notice Measure voting power of `addr` at block number `_block`.
+    @dev Adheres to Compounds `getPriorVotes` interface: https://github.com/compound-finance/compound-protocol .
+    @param addr User's wallet address.
+    @param _block Block to calculate the voting power at.
+    @return User voting power at `_block`.
+    """
     return self.balance_of_at(addr, _block)
