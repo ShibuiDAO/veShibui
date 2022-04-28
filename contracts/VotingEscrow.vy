@@ -15,6 +15,7 @@ interface ERC20:
     def symbol() -> String[32]: view
     def transfer(to: address, amount: uint256) -> bool: nonpayable
     def transferFrom(spender: address, to: address, amount: uint256) -> bool: nonpayable
+    def approve(spender: address, amount: uint256) -> bool: nonpayable
 
 interface Migrator:
     def migrateLock(account: address, amount: uint256):nonpayable
@@ -131,7 +132,9 @@ def commit_transfer_ownership(addr: address):
     @param addr Address to have ownership transferred to
     """
     self.assert_is_admin(msg.sender)
+
     self.future_admin = addr
+
     log CommitOwnership(addr)
 
 
@@ -486,6 +489,29 @@ def withdraw():
 
     log Withdraw(msg.sender, value, block.timestamp)
     log Supply(supply_before, supply_before - value)
+
+
+@external
+@nonreentrant('lock')
+def migrate():
+    assert self.next_ve_contract != ZERO_ADDRESS # dev: no next ve contract
+
+    _locked: LockedBalance = self.locked[msg.sender]
+    assert block.timestamp < _locked.end, "lock expired"
+    value: uint256 = convert(_locked.amount, uint256)
+
+    ERC20(self.token).approve(self.next_ve_contract, value)
+    Migrator(self.next_ve_contract).migrateLock(msg.sender, value)
+
+    old_locked: LockedBalance = _locked
+    _locked.end = 0
+    _locked.amount = 0
+    self.locked[msg.sender] = _locked
+    supply_before: uint256 = self.supply
+    self.supply = supply_before - value
+    self._checkpoint(msg.sender, old_locked, _locked)
+
+    log Migrate(msg.sender, value, self.next_ve_contract)
 
 
 # The following ERC20/minime-compatible methods are not real balanceOf and supply!
