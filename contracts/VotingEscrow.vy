@@ -57,7 +57,7 @@ INCREASE_LOCK_AMOUNT: constant(int128) = 2
 INCREASE_UNLOCK_TIME: constant(int128) = 3
 
 WEEK: constant(uint256) = 7 * 86400  # all future times are rounded by week
-MAXTIME: constant(uint256) = 6 * 30 * 86400  # 4 years
+MAXTIME: constant(uint256) = 7 * 4 * 6 * 86400  # 6 months
 MULTIPLIER: constant(uint256) = 10 ** 18
 
 token: public(address)
