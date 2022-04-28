@@ -16,6 +16,9 @@ interface ERC20:
     def transfer(to: address, amount: uint256) -> bool: nonpayable
     def transferFrom(spender: address, to: address, amount: uint256) -> bool: nonpayable
 
+interface Migrator:
+    def migrateLock(account: address, amount: uint256):nonpayable
+
 struct Point:
     bias: int128
     slope: int128  # - dweight / dt
@@ -35,6 +38,12 @@ event CommitOwnership:
 event ApplyOwnership:
     admin: address
 
+event CommitNextVeContract:
+    ve: indexed(address)
+
+event ApplyNextVeContract:
+    ve: indexed(address)
+
 event Deposit:
     provider: indexed(address)
     value: uint256
@@ -42,14 +51,19 @@ event Deposit:
     type: int128
     ts: uint256
 
+event Supply:
+    prevSupply: uint256
+    supply: uint256
+
 event Withdraw:
     provider: indexed(address)
     value: uint256
     ts: uint256
 
-event Supply:
-    prevSupply: uint256
-    supply: uint256
+event Migrate:
+    account: indexed(address)
+    amount: uint256
+    to: indexed(address)
 
 DEPOSIT_FOR_TYPE: constant(int128) = 0
 CREATE_LOCK_TYPE: constant(int128) = 1
@@ -77,6 +91,11 @@ decimals: public(uint256)
 
 admin: public(address)  # Can and will be a smart contract (Governor Charlie)
 future_admin: public(address)
+
+next_ve_contract: public(address)
+queued_next_ve_contract: public(address)
+migration: public(bool)
+
 
 @external
 def __init__(token_addr: address, _name: String[64], _symbol: String[32]):
@@ -129,6 +148,34 @@ def apply_transfer_ownership():
     self.future_admin = ZERO_ADDRESS
 
     log ApplyOwnership(_admin)
+
+
+@external
+def commit_next_ve_contract(addr: address):
+    self.assert_is_admin(msg.sender)
+
+    self.queued_next_ve_contract = addr
+    self.migration = False
+
+    log CommitNextVeContract(addr)
+
+
+@external
+def apply_next_ve_contract():
+    """
+    @notice Apply new VE contract address for migration
+    """
+    self.assert_is_admin(msg.sender)
+
+    next: address = self.queued_next_ve_contract
+
+    assert next != ZERO_ADDRESS
+
+    self.next_ve_contract = next
+    self.migration = True
+    self.queued_next_ve_contract = ZERO_ADDRESS
+
+    log ApplyNextVeContract(next)
 
 
 # TODO: Possibly use SmartContractChecker
