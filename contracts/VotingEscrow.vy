@@ -171,7 +171,6 @@ def commit_next_ve_contract(addr: address):
     self.assert_is_admin(msg.sender)
 
     self.queued_next_ve_contract = addr
-    self.migration = False
 
     log CommitNextVeContract(addr)
 
@@ -199,9 +198,12 @@ def apply_next_ve_contract():
 def get_last_user_slope(addr: address) -> int128:
     """
     @notice Get the most recently recorded rate of voting power decrease for `addr`
+    @dev Returns 0 if a migration is active.
     @param addr Address of the user wallet
     @return Value of the slope
     """
+    if self.migration:
+        return 0
     uepoch: uint256 = self.user_point_epoch[addr]
     return self.user_point_history[addr][uepoch].slope
 
@@ -211,10 +213,13 @@ def get_last_user_slope(addr: address) -> int128:
 def user_point_history__ts(_addr: address, _idx: uint256) -> uint256:
     """
     @notice Get the timestamp for checkpoint `_idx` for `_addr`
+    @dev Returns 0 if a migration is active.
     @param _addr User wallet address
     @param _idx User epoch number
     @return Epoch time of the checkpoint
     """
+    if self.migration:
+        return 0
     return self.user_point_history[_addr][_idx].ts
 
 
@@ -223,9 +228,12 @@ def user_point_history__ts(_addr: address, _idx: uint256) -> uint256:
 def locked__end(_addr: address) -> uint256:
     """
     @notice Get timestamp when `_addr`'s lock finishes
+    @dev Returns 0 if a migration is active.
     @param _addr User wallet
     @return Epoch time of the lock end
     """
+    if self.migration:
+        return 0
     return self.locked[_addr].end
 
 
@@ -358,11 +366,13 @@ def checkpoint():
 def _deposit_for(_addr: address, _value: uint256, unlock_time: uint256, locked_balance: LockedBalance, type: int128):
     """
     @notice Deposit and lock tokens for a user
+    @dev Deposits will fail if a migration is live.
     @param _addr User's wallet address
     @param _value Amount to deposit
     @param unlock_time New time when to unlock the tokens, or 0 if unchanged
     @param locked_balance Previous locked amount / timestamp
     """
+    assert self.migration == False # dev: must migrate
     _locked: LockedBalance = locked_balance
     supply_before: uint256 = self.supply
 
@@ -545,10 +555,14 @@ def find_block_epoch(_block: uint256, max_epoch: uint256) -> uint256:
 def balance_of(addr: address, _t: uint256 = block.timestamp) -> uint256:
     """
     @notice Get the current voting power for `msg.sender`
+    @dev Returns 0 if a migration is active.
     @param addr User wallet address
     @param _t Epoch time to return voting power at
     @return User voting power
     """
+    if self.migration:
+        return 0
+
     _epoch: uint256 = self.user_point_epoch[addr]
     if _epoch == 0:
         return 0
@@ -565,7 +579,7 @@ def balance_of(addr: address, _t: uint256 = block.timestamp) -> uint256:
 def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
     """
     @notice Get the current voting power for `msg.sender`
-    @dev Adheres to the ERC20 `balanceOf` interface for Aragon compatibility
+    @dev Adheres to the ERC20 `balanceOf` interface
     @param addr User wallet address
     @param _t Epoch time to return voting power at
     @return User voting power
@@ -578,10 +592,14 @@ def balanceOf(addr: address, _t: uint256 = block.timestamp) -> uint256:
 def balance_of_at(addr: address, _block: uint256) -> uint256:
     """
     @notice Measure voting power of `addr` at block height `_block`
+    @dev Returns 0 if a migration is active.
     @param addr User's wallet address
     @param _block Block to calculate the voting power at
     @return Voting power
     """
+    if self.migration:
+        return 0
+
     # Copying and pasting totalSupply code because Vyper cannot pass by
     # reference yet
     assert _block <= block.number
@@ -629,6 +647,7 @@ def balanceOfAt(addr: address, _block: uint256) -> uint256:
     """
     @notice Measure voting power of `addr` at block height `_block`
     @dev Adheres to MiniMe `balanceOfAt` interface: https://github.com/Giveth/minime
+    @dev Returns 0 if a migration is active.
     @param addr User's wallet address
     @param _block Block to calculate the voting power at
     @return Voting power
@@ -641,10 +660,14 @@ def balanceOfAt(addr: address, _block: uint256) -> uint256:
 def supply_at(point: Point, t: uint256) -> uint256:
     """
     @notice Calculate total voting power at some point in the past
+    @dev Returns 0 if a migration is active.
     @param point The point (bias/slope) to start search from
     @param t Time to calculate the total voting power at
     @return Total voting power at that time
     """
+    if self.migration:
+        return 0
+
     last_point: Point = point
     t_i: uint256 = (last_point.ts / WEEK) * WEEK
     for i in range(255):
@@ -670,7 +693,8 @@ def supply_at(point: Point, t: uint256) -> uint256:
 def totalSupply(t: uint256 = block.timestamp) -> uint256:
     """
     @notice Calculate total voting power
-    @dev Adheres to the ERC20 `totalSupply` interface for Aragon compatibility
+    @dev Adheres to the ERC20 `totalSupply` interface.
+    @dev Returns 0 if a migration is active.
     @return Total voting power
     """
     _epoch: uint256 = self.epoch
@@ -683,9 +707,13 @@ def totalSupply(t: uint256 = block.timestamp) -> uint256:
 def totalSupplyAt(_block: uint256) -> uint256:
     """
     @notice Calculate total voting power at some point in the past
+    @dev Returns 0 if a migration is active.
     @param _block Block to calculate the total voting power at
     @return Total voting power at `_block`
     """
+    if self.migration:
+        return 0
+
     assert _block <= block.number
     _epoch: uint256 = self.epoch
     target_epoch: uint256 = self.find_block_epoch(_block, _epoch)
@@ -713,6 +741,7 @@ def getCurrentVotes(addr: address) -> uint256:
     """
     @notice Get the current voting power for `msg.sender`.
     @dev Adheres to Compounds `getCurrentVotes` interface: https://github.com/compound-finance/compound-protocol .
+    @dev Returns 0 if a migration is active.
     @param addr User wallet address.
     @return User voting power.
     """
@@ -725,6 +754,7 @@ def getPriorVotes(addr: address, _block: uint256) -> uint256:
     """
     @notice Measure voting power of `addr` at block number `_block`.
     @dev Adheres to Compounds `getPriorVotes` interface: https://github.com/compound-finance/compound-protocol .
+    @dev Returns 0 if a migration is active.
     @param addr User's wallet address.
     @param _block Block to calculate the voting power at.
     @return User voting power at `_block`.
