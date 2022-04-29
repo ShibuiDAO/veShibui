@@ -5,3 +5,6 @@ __pycache__
 build/
 reports/
 node_modules/
+cache/
+artifacts/
+typechain/
