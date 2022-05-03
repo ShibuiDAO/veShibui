@@ -13,12 +13,12 @@ const config: HardhatUserConfig = {
 		runOnCompile: true,
 		clear: true,
 		flat: true,
-		only: ['VotingEscrow']
+		only: ['VotingEscrow', 'RewardsOnlyGauge']
 	},
 	typechain: {
 		outDir: 'typechain',
 		target: 'ethers-v5',
-		alwaysGenerateOverloads: false,
+		alwaysGenerateOverloads: true,
 		externalArtifacts: ['abis/*.json']
 	}
 };

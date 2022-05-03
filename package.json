@@ -1,11 +1,17 @@
 {
-	"name": "veShibui",
+	"name": "@shibui/ve-shibui",
 	"license": "MIT",
 	"private": false,
 	"scripts": {
+		"build": "hardhat export-abi && hardhat compile",
 		"preinstall": "npm i -g ganache-cli@6.12.1"
 	},
-	"files": [],
+	"types": "typechain/index.ts",
+	"main": "typechain/index.ts",
+	"files": [
+		"typechain",
+		"abis"
+	],
 	"dependencies": {
 		"ethers": "^5.6.4"
 	},
