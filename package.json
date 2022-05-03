@@ -4,9 +4,10 @@
 	"license": "MIT",
 	"private": false,
 	"scripts": {
+		"generate:typechain": "typechain --target ethers-v5 --always-generate-overloads --discriminate-types --out-dir typechain './abis/*.json'",
 		"preinstall": "npm i -g ganache-cli@6.12.1",
-		"postinstall": "hardhat export-abi && hardhat compile",
-		"build": "hardhat export-abi && hardhat compile"
+		"postinstall": "yarn generate:typechain",
+		"build": "yarn generate:typechain"
 	},
 	"types": "typechain/index.ts",
 	"main": "typechain/index.ts",
