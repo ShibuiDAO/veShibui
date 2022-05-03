@@ -1,11 +1,12 @@
 {
-	"name": "@shibui/ve-shibui",
+	"name": "@shibuidao/ve-shibui",
 	"version": "0.1.0",
 	"license": "MIT",
 	"private": false,
 	"scripts": {
-		"build": "hardhat export-abi && hardhat compile",
-		"preinstall": "npm i -g ganache-cli@6.12.1"
+		"preinstall": "npm i -g ganache-cli@6.12.1",
+		"postinstall": "hardhat export-abi && hardhat compile",
+		"build": "hardhat export-abi && hardhat compile"
 	},
 	"types": "typechain/index.ts",
 	"main": "typechain/index.ts",
