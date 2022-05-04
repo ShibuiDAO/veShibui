@@ -13,7 +13,7 @@ const config: HardhatUserConfig = {
 		runOnCompile: true,
 		clear: true,
 		flat: true,
-		only: ['VotingEscrow', 'RewardsOnlyGauge']
+		only: ['VotingEscrow', 'RewardsOnlyGauge', 'RewardDripper']
 	},
 	typechain: {
 		outDir: 'typechain',
