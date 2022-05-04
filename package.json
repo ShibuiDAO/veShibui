@@ -6,8 +6,7 @@
 	"scripts": {
 		"generate:typechain": "typechain --target ethers-v5 --always-generate-overloads --discriminate-types --out-dir typechain './abis/*.json'",
 		"preinstall": "npm i -g ganache-cli@6.12.1",
-		"postinstall": "yarn generate:typechain",
-		"build": "yarn generate:typechain"
+		"clean:abis": "fd \".*.json\" abis/ --exec bash -c 'jq \"map(del(.gas))\" {} | sponge {}'"
 	},
 	"types": "typechain/index.ts",
 	"main": "typechain/index.ts",
