@@ -40,7 +40,7 @@ event Approval:
     _value: uint256
 
 MAX_REWARDS: constant(uint256) = 8
-CLAIM_FREQUENCY: constant(uint256) = 86400
+CLAIM_FREQUENCY: constant(uint256) = 3600
 
 lp_token: public(address)
 
