@@ -8,8 +8,9 @@
 		"preinstall": "npm i -g ganache-cli@6.12.1",
 		"hardhat:compile": "hardhat compile",
 		"compile": "yarn hardhat:compile",
-		"postcompile": "yarn clean:abis",
-		"clean:abis": "fd \".*.json\" abis/ --exec bash -c 'jq \"map(del(.gas))\" {} | sponge {}'"
+		"postcompile": "yarn abis:clean && yarn abis:rewardsonlygauge:change_write_to_view",
+		"abis:clean": "fd \".*.json\" abis/ --exec bash -c 'jq \"map(del(.gas))\" {} | sponge {}'",
+		"abis:rewardsonlygauge:change_write_to_view": "jq 'map((select(.name==\"claimable_reward_write\") | .stateMutability) |= \"view\")' ./abis/RewardsOnlyGauge.json | sponge ./abis/RewardsOnlyGauge.json"
 	},
 	"types": "typechain/index.ts",
 	"main": "typechain/index.ts",
